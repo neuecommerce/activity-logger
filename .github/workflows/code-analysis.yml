@@ -1,0 +1,48 @@
+name: Code Analysis
+
+on:
+  pull_request:
+
+jobs:
+  code_analysis:
+    if: "!contains(github.event.head_commit.message, '[skip-ci]')"
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1']
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Composer
+        run: composer config --global --auth http-basic.neue-commerce.repo.repman.io token ${{ secrets.COMPOSER_AUTH_TOKEN }}
+
+      - name: Install Dependencies
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          command: composer install --no-interaction --no-progress
+
+      - name: PHP CS Fixer
+        run: "composer php-cs-fixer:ci"
+
+      - name: PHPStan
+        run: "composer phpstan"
+
+      - name: Rector
+        run: "composer rector:ci"
+
+      - name : Composer validate
+        run : "composer validate"
